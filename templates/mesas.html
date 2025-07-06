@@ -33,6 +33,12 @@
           </p>
           {% if mesa.estado == 'libre' %}
           <button class="btn btn-primary" onclick="abrirModal({{ mesa.id_mesa }})">Reservar</button>
+          {% elif mesa.estado == 'reservada' %}
+          <form method="POST" action="/accion_reserva" class="d-grid gap-2">
+            <input type="hidden" name="id_mesa" value="{{ mesa.id_mesa }}">
+            <button class="btn btn-success mb-1" name="accion" value="ocupar">Ocupar</button>
+            <button class="btn btn-danger" name="accion" value="cancelar">Cancelar</button>
+          </form>
           {% else %}
           <button class="btn btn-secondary" disabled>No disponible</button>
           {% endif %}
@@ -98,6 +104,5 @@
   }
 </script>
 {% endblock %}
-
 
 

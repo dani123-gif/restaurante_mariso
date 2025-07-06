@@ -62,6 +62,29 @@ def reservar():
     flash("✅ Reserva registrada exitosamente.")
     return redirect(url_for('index'))
 
+@app.route('/accion_reserva', methods=['POST'])
+def accion_reserva():
+    id_mesa = request.form['id_mesa']
+    accion = request.form['accion']
+    cursor = db.cursor()
+
+    if accion == 'ocupar':
+        cursor.execute("UPDATE mesas SET estado = 'ocupada' WHERE id_mesa = %s", (id_mesa,))
+        flash(f"✅ Mesa {id_mesa} marcada como ocupada.")
+
+    elif accion == 'cancelar':
+        cursor.execute("""
+            DELETE FROM reservas
+            WHERE id_mesa = %s AND estado = 'reservada'
+            ORDER BY fecha_reserva DESC, hora_reserva DESC
+            LIMIT 1
+        """, (id_mesa,))
+        cursor.execute("UPDATE mesas SET estado = 'libre' WHERE id_mesa = %s", (id_mesa,))
+        flash(f"❌ Reserva cancelada para la mesa {id_mesa}.")
+
+    db.commit()
+    return redirect(url_for('index'))
+
 @app.route('/reservas_mesa/<int:id_mesa>')
 def reservas_mesa(id_mesa):
     cursor = db.cursor(dictionary=True)
