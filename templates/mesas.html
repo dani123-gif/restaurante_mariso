@@ -1,108 +1,29 @@
-{% extends 'layout.html' %}
-
-{% block title %}Mesas{% endblock %}
-
+{% extends "layout.html" %}
 {% block content %}
-<div class="container py-4">
-  <h2 class="mb-4 text-center">🪑 Estado de Mesas</h2>
-
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      <div class="alert alert-warning">
-        {% for message in messages %}
-          {{ message }}
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
-
-  <div class="row">
+<div class="row">
     {% for mesa in mesas %}
     <div class="col-md-3 mb-4">
-      <div class="card text-center border-3"
-           style="background-color:
-             {% if mesa.estado == 'libre' %}#ffffff
-             {% elif mesa.estado == 'reservada' %}#ffe0e0
-             {% elif mesa.estado == 'ocupada' %}#d4edda
-             {% endif %};">
-        <div class="card-body">
-          <h5 class="card-title">Mesa {{ mesa.id_mesa }}</h5>
-          <p class="card-text">Capacidad: {{ mesa.capacidad }}</p>
-          <p class="card-text">
-            Estado: <strong>{{ mesa.estado|capitalize }}</strong>
-          </p>
-          {% if mesa.estado == 'libre' %}
-          <button class="btn btn-primary" onclick="abrirModal({{ mesa.id_mesa }})">Reservar</button>
-          {% elif mesa.estado == 'reservada' %}
-          <form method="POST" action="/accion_reserva" class="d-grid gap-2">
-            <input type="hidden" name="id_mesa" value="{{ mesa.id_mesa }}">
-            <button class="btn btn-success mb-1" name="accion" value="ocupar">Ocupar</button>
-            <button class="btn btn-danger" name="accion" value="cancelar">Cancelar</button>
-          </form>
-          {% else %}
-          <button class="btn btn-secondary" disabled>No disponible</button>
-          {% endif %}
+        <div class="card text-center border-{{ 
+            'success' if mesa.estado == 'ocupada' else 
+            'danger' if mesa.estado == 'reservada' else 
+            'secondary' }}">
+            <div class="card-body">
+                <h5>Mesa {{ mesa.numero }}</h5>
+                <p>Capacidad: {{ mesa.capacidad }}</p>
+                <p class="text-uppercase fw-bold">Estado: {{ mesa.estado }}</p>
+                {% if mesa.estado == 'libre' %}
+                    <a href="/reservar/{{ mesa.id_mesa }}" class="btn btn-primary">Reservar</a>
+                {% elif mesa.estado == 'reservada' %}
+                    <a href="/ocupar/{{ mesa.id_mesa }}" class="btn btn-success mb-2">Ocupar</a>
+                    <a href="/cancelar/{{ mesa.id_mesa }}" class="btn btn-danger">Cancelar</a>
+                {% elif mesa.estado == 'ocupada' %}
+                    <a href="/liberar/{{ mesa.id_mesa }}" class="btn btn-warning">Liberar</a>
+                {% endif %}
+            </div>
         </div>
-      </div>
     </div>
     {% endfor %}
-  </div>
 </div>
-
-<!-- Modal de Reserva -->
-<div class="modal fade" id="modalReserva" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <form method="POST" action="/reservar">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Reservar Mesa</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" name="id_mesa" id="id_mesa">
-          <div class="mb-2"><input class="form-control" name="nombres" placeholder="Nombres" required></div>
-          <div class="mb-2"><input class="form-control" name="apellidos" placeholder="Apellidos" required></div>
-          <div class="mb-2"><input class="form-control" name="dni" placeholder="DNI" required></div>
-          <div class="mb-2"><input class="form-control" name="telefono" placeholder="Teléfono" required></div>
-          <div class="mb-2"><input class="form-control" name="fecha" type="date" required></div>
-          <div class="mb-2"><input class="form-control" name="hora" type="time" required></div>
-
-          <hr>
-          <div id="infoReservas" style="font-size: 0.9em;"></div>
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-success">Guardar Reserva</button>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-
-<script>
-  function abrirModal(idMesa) {
-    document.getElementById("id_mesa").value = idMesa;
-    const info = document.getElementById("infoReservas");
-    info.innerHTML = "⏳ Consultando reservas...";
-
-    fetch(`/reservas_mesa/${idMesa}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.length > 0) {
-          let html = "<strong>Reservas existentes:</strong><ul>";
-          data.forEach(r => {
-            html += `<li>${r.fecha} ${r.hora} - ${r.nombre}</li>`;
-          });
-          html += "</ul>";
-          info.innerHTML = html;
-        } else {
-          info.innerHTML = "✅ Sin reservas para esta mesa.";
-        }
-      });
-
-    new bootstrap.Modal(document.getElementById("modalReserva")).show();
-  }
-</script>
 {% endblock %}
 
 
