@@ -1,140 +1,98 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import mysql.connector
 from datetime import datetime, timedelta
+import os
 
 app = Flask(__name__)
+app.secret_key = 'secreto123'
 
-# 🔐 Conexión a MySQL RDS
-db = mysql.connector.connect(
-    host="database-1.cbmc846qcmg5.sa-east-1.rds.amazonaws.com",
-    user="admin",
-    password="Vamosperu10_",
-    database="restaurante_marisol"
-)
+# Conexión a la base de datos
+config = {
+    'host': 'database-1.cbmc846qcmg5.sa-east-1.rds.amazonaws.com',
+    'user': 'admin',
+    'password': 'Vamosperu10_',
+    'database': 'restaurante_marisol'
+}
 
-# 🔄 Reconexión automática
-def get_cursor():
-    global db
-    if not db.is_connected():
-        db.reconnect()
-    return db.cursor(dictionary=True)
+db = mysql.connector.connect(**config)
 
-# 🔄 Actualizar estado de mesas según hora
-def actualizar_estados():
-    now = datetime.now()
-    cursor = get_cursor()
-    cursor.execute("""
-        SELECT r.id_reserva, r.id_mesa, r.fecha_reserva, r.hora_reserva
-        FROM reservas r
-        WHERE r.estado = 'activa'
-    """)
-    reservas = cursor.fetchall()
-    for reserva in reservas:
-        hora_raw = reserva['hora_reserva']
-        hora = (datetime.min + hora_raw).time() if isinstance(hora_raw, timedelta) else hora_raw
-        fecha_hora = datetime.combine(reserva['fecha_reserva'], hora)
-        minutos_faltantes = (fecha_hora - now).total_seconds() / 60
-
-        if minutos_faltantes <= 30:
-            get_cursor().execute(
-                "UPDATE mesas SET estado = 'reservada' WHERE id_mesa = %s AND estado != 'ocupada'",
-                (reserva['id_mesa'],)
-            )
-        else:
-            get_cursor().execute(
-                "UPDATE mesas SET estado = 'libre' WHERE id_mesa = %s AND estado != 'ocupada'",
-                (reserva['id_mesa'],)
-            )
-    db.commit()
-    cursor.close()
-
-# 🏠 Página principal
 @app.route('/')
 def index():
-    actualizar_estados()
-    cursor = get_cursor()
-    cursor.execute("SELECT * FROM mesas ORDER BY numero")
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM mesas")
     mesas = cursor.fetchall()
-    cursor.close()
     return render_template('mesas.html', mesas=mesas)
 
-# 📋 Formulario de reserva
-@app.route('/reservar/<int:id_mesa>', methods=['GET', 'POST'])
-def reservar(id_mesa):
-    if request.method == 'POST':
-        nombres = request.form['nombres']
-        apellidos = request.form['apellidos']
-        dni = request.form['dni']
-        telefono = request.form['telefono']
-        fecha = request.form['fecha']
-        hora = request.form['hora']
+@app.route('/reservar', methods=['POST'])
+def reservar():
+    id_mesa = request.form['id_mesa']
+    nombres = request.form['nombres']
+    apellidos = request.form['apellidos']
+    dni = request.form['dni']
+    telefono = request.form['telefono']
+    fecha = request.form['fecha']
+    hora = request.form['hora']
 
-        cursor = get_cursor()
-        cursor.execute("INSERT INTO clientes (nombres, apellidos, dni, telefono) VALUES (%s, %s, %s, %s)",
-                       (nombres, apellidos, dni, telefono))
-        id_cliente = cursor.lastrowid
-        cursor.execute("INSERT INTO reservas (id_mesa, id_cliente, fecha_reserva, hora_reserva) VALUES (%s, %s, %s, %s)",
-                       (id_mesa, id_cliente, fecha, hora))
-        db.commit()
-        cursor.close()
+    cursor = db.cursor()
+
+    # Verificar conflicto de horario (1 hora antes o después)
+    cursor.execute("""
+        SELECT * FROM reservas 
+        WHERE id_mesa = %s AND fecha_reserva = %s
+        AND ABS(TIMESTAMPDIFF(MINUTE, hora_reserva, %s)) < 60
+    """, (id_mesa, fecha, hora))
+
+    conflicto = cursor.fetchone()
+    if conflicto:
+        flash(f"❌ La mesa {id_mesa} ya está reservada para una hora cercana. Espere mínimo 1 hora entre reservas.")
         return redirect(url_for('index'))
 
-    return render_template('reservar.html', id_mesa=id_mesa)
+    cursor.execute("INSERT INTO clientes (nombres, apellidos, dni, telefono) VALUES (%s, %s, %s, %s)",
+                   (nombres, apellidos, dni, telefono))
+    id_cliente = cursor.lastrowid
 
-# ❌ Cancelar reserva
-@app.route('/cancelar/<int:id_mesa>')
-def cancelar(id_mesa):
-    cursor = get_cursor()
-    cursor.execute("UPDATE reservas SET estado = 'cancelada' WHERE id_mesa = %s AND estado = 'activa'", (id_mesa,))
-    cursor.execute("UPDATE mesas SET estado = 'libre' WHERE id_mesa = %s", (id_mesa,))
+    cursor.execute("""
+        INSERT INTO reservas (id_mesa, id_cliente, fecha_reserva, hora_reserva, estado)
+        VALUES (%s, %s, %s, %s, 'reservada')
+    """, (id_mesa, id_cliente, fecha, hora))
+
+    cursor.execute("UPDATE mesas SET estado = 'reservada' WHERE id_mesa = %s", (id_mesa,))
     db.commit()
-    cursor.close()
+
+    flash("✅ Reserva registrada exitosamente.")
     return redirect(url_for('index'))
 
-# ✅ Ocupar mesa
-@app.route('/ocupar/<int:id_mesa>')
-def ocupar(id_mesa):
-    cursor = get_cursor()
-    cursor.execute("UPDATE reservas SET estado = 'ocupada' WHERE id_mesa = %s AND estado = 'activa'", (id_mesa,))
-    cursor.execute("UPDATE mesas SET estado = 'ocupada' WHERE id_mesa = %s", (id_mesa,))
-    db.commit()
-    cursor.close()
-    return redirect(url_for('index'))
+@app.route('/reservas_mesa/<int:id_mesa>')
+def reservas_mesa(id_mesa):
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT r.fecha_reserva as fecha, r.hora_reserva as hora, c.nombres as nombre
+        FROM reservas r
+        JOIN clientes c ON r.id_cliente = c.id_cliente
+        WHERE r.id_mesa = %s
+        ORDER BY r.fecha_reserva, r.hora_reserva
+    """, (id_mesa,))
+    reservas = cursor.fetchall()
+    return jsonify(reservas)
 
-# ✅ Liberar mesa ocupada
-@app.route('/liberar/<int:id_mesa>')
-def liberar(id_mesa):
-    cursor = get_cursor()
-    cursor.execute("UPDATE mesas SET estado = 'libre' WHERE id_mesa = %s", (id_mesa,))
-    db.commit()
-    cursor.close()
-    return redirect(url_for('index'))
-
-# 📋 Historial de reservas (corregido)
 @app.route('/historial')
 def historial():
-    cursor = get_cursor()
+    cursor = db.cursor(dictionary=True)
     cursor.execute("""
-        SELECT r.id_reserva, r.fecha_reserva, r.hora_reserva, r.estado,
-               m.numero AS numero_mesa,
-               c.nombres, c.apellidos
+        SELECT r.*, c.nombres, c.apellidos, c.dni, c.telefono
         FROM reservas r
-        JOIN mesas m ON r.id_mesa = m.id_mesa
         JOIN clientes c ON r.id_cliente = c.id_cliente
         ORDER BY r.fecha_reserva DESC, r.hora_reserva DESC
     """)
     reservas = cursor.fetchall()
-    cursor.close()
 
-    # ✅ Convertir hora_reserva si es timedelta
     for r in reservas:
         if isinstance(r['hora_reserva'], timedelta):
             r['hora_reserva'] = (datetime.min + r['hora_reserva']).time()
 
     return render_template('historial.html', reservas=reservas)
 
-# 🔥 Ejecutar la app
+# Render compatible
 if __name__ == '__main__':
-    import os
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
