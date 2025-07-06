@@ -1,0 +1,56 @@
+{% extends 'layout.html' %}
+
+{% block title %}Estado de Mesas{% endblock %}
+
+{% block content %}
+<h3 class="text-center mb-4 text-success">Estado de las Mesas</h3>
+
+<div class="d-flex flex-wrap justify-content-center">
+  {% for mesa in mesas %}
+    <div class="text-center m-3 p-3 border border-dark rounded shadow mesa {{ mesa.estado }}" style="width: 170px; height: 190px;">
+      <h5 class="fw-bold">Mesa {{ mesa.numero }}</h5>
+      <p class="small">{{ mesa.capacidad }} personas</p>
+
+      {% if mesa.estado == 'libre' %}
+        <a href="{{ url_for('reservar', id_mesa=mesa.id_mesa) }}" class="btn btn-outline-primary btn-sm mt-2">Reservar</a>
+      {% elif mesa.estado == 'reservada' %}
+        <a href="{{ url_for('ocupar', id_mesa=mesa.id_mesa) }}" class="btn btn-success btn-sm mb-2">Ocupar</a>
+        <a href="{{ url_for('cancelar', id_mesa=mesa.id_mesa) }}" class="btn btn-danger btn-sm">Cancelar</a>
+      {% elif mesa.estado == 'ocupada' %}
+        <span class="badge bg-dark d-block mb-2">Ocupada</span>
+        <a href="{{ url_for('liberar', id_mesa=mesa.id_mesa) }}" class="btn btn-warning btn-sm">Liberar</a>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+<style>
+  .mesa {
+    transition: transform 0.2s ease-in-out;
+  }
+  .mesa:hover {
+    transform: scale(1.05);
+  }
+
+  .mesa.libre {
+    background-color: #fefefe;
+    color: #000;
+  }
+
+  .mesa.reservada {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: #fff;
+  }
+
+  .mesa.ocupada {
+    background: linear-gradient(135deg, #27ae60, #1e8449);
+    color: #fff;
+  }
+
+  .btn {
+    width: 100%;
+  }
+</style>
+{% endblock %}
+
+

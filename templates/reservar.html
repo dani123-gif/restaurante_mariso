@@ -1,0 +1,43 @@
+{% extends 'layout.html' %}
+
+{% block title %}Reservar Mesa {{ id_mesa }}{% endblock %}
+
+{% block content %}
+<div class="card mx-auto shadow" style="max-width: 600px;">
+  <div class="card-header bg-success text-white">
+    <h4 class="mb-0">Reservar Mesa #{{ id_mesa }}</h4>
+  </div>
+  <div class="card-body">
+    <form method="POST">
+      <div class="mb-3">
+        <label>Nombres</label>
+        <input type="text" name="nombres" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label>Apellidos</label>
+        <input type="text" name="apellidos" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label>DNI</label>
+        <input type="text" name="dni" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label>Teléfono</label>
+        <input type="text" name="telefono" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label>Fecha deseada</label>
+        <input type="date" name="fecha" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label>Hora deseada</label>
+        <input type="time" name="hora" class="form-control" required>
+      </div>
+      <div class="d-grid">
+        <button type="submit" class="btn btn-success">Confirmar Reserva</button>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary mt-2">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

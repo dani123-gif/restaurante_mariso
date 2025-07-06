@@ -1,0 +1,52 @@
+{% extends 'layout.html' %}
+
+{% block title %}Historial de Reservas{% endblock %}
+
+{% block content %}
+<div class="card shadow mx-auto" style="max-width: 1000px;">
+  <div class="card-header bg-primary text-white text-center">
+    <h4 class="mb-0">📋 Historial de Reservas</h4>
+  </div>
+  <div class="card-body table-responsive">
+    <table class="table table-bordered table-hover table-striped">
+      <thead class="table-dark text-center">
+        <tr>
+          <th>#</th>
+          <th>Cliente</th>
+          <th>Mesa</th>
+          <th>Fecha</th>
+          <th>Hora</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reservas %}
+        <tr class="text-center align-middle">
+          <td>{{ r.id_reserva }}</td>
+          <td>{{ r.nombres }} {{ r.apellidos }}</td>
+          <td>Mesa {{ r.numero_mesa }}</td>
+          <td>{{ r.fecha_reserva.strftime('%d/%m/%Y') }}</td>
+          <td>
+            {% if r.hora_reserva.strftime %}
+              {{ r.hora_reserva.strftime('%H:%M') }}
+            {% else %}
+              {{ r.hora_reserva }}
+            {% endif %}
+          </td>
+          <td>
+            {% if r.estado == 'activa' %}
+              <span class="badge bg-info">Activa</span>
+            {% elif r.estado == 'ocupada' %}
+              <span class="badge bg-success">Ocupada</span>
+            {% elif r.estado == 'cancelada' %}
+              <span class="badge bg-danger">Cancelada</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
