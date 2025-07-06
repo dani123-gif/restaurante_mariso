@@ -85,6 +85,15 @@ def accion_reserva():
     db.commit()
     return redirect(url_for('index'))
 
+@app.route('/liberar_mesa', methods=['POST'])
+def liberar_mesa():
+    id_mesa = request.form['id_mesa']
+    cursor = db.cursor()
+    cursor.execute("UPDATE mesas SET estado = 'libre' WHERE id_mesa = %s", (id_mesa,))
+    db.commit()
+    flash(f"🔓 Mesa {id_mesa} liberada correctamente.")
+    return redirect(url_for('index'))
+
 @app.route('/reservas_mesa/<int:id_mesa>')
 def reservas_mesa(id_mesa):
     cursor = db.cursor(dictionary=True)
